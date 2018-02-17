@@ -1,5 +1,6 @@
 ﻿namespace LogReader
 {
+    using System.Collections.Generic;
     using JetBrains.Annotations;
 
     /// <summary>
@@ -7,7 +8,7 @@
     /// </summary>
     public class LogEntry
     {
-        public LogEntry(string headLine, string content, string message)
+        public LogEntry(string headLine, List<string> content, string message)
         {
             // TODO: Add loglevel enum.
             HeadLine = headLine;
@@ -21,10 +22,10 @@
         public string HeadLine { get; }
 
         /// <summary>
-        ///     The content, everything after the first line of the log message.
+        ///     The content, everything after the first line of the log message. May be an empty list.
         /// </summary>
-        [CanBeNull]
-        public string Content { get; }
+        [NotNull]
+        public List<string> Content { get; }
 
         /// <summary>
         ///     The message after the timestamp and log level on then first line.

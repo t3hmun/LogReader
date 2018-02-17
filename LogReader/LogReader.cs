@@ -10,50 +10,53 @@
     /// </summary>
     public static class LogReader
     {
-        private static readonly Regex _defaultLineMatcher =
+        /// <summary>
+        /// A matcher for the defualt format for the Serilog File sink.
+        /// 2018-07-06 09:02:17.148 +10:00 [INF]
+        /// </summary>
+        private static readonly Regex DefaultLineMatcherRegex =
             new Regex(@"^(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d\.\d+ ((\-|\+)\d\d:\d\d)? \[(VRB|DBG|INF|WRN|ERR|FTL)\])");
 
-        public static IEnumerable<LogEntry> ReadLog(string[] logLines, Func<string, bool> logLineMatcher,
-            Action levelMatcher)
+        
+        public static IEnumerable<LogEntry> ReadLog(IEnumerable<string> logLines, Func<string, bool> logLineMatcher)
         {
-            // Default format
-            //2018-07-06 09:02:17.148 +10:00 [INF]
+            string headerLine = null;
 
-            var headLines = logLines.Select((line, i) => (Index: i, Line: line))
-                .Where(item => logLineMatcher(item.Line))
-                .OrderBy(item => item.Index)
-                .ToArray();
-
-            for (var i = 0; i < headLines.Length; i++)
+            var start = logLines.SkipWhile(line =>
             {
-                var headLine = headLines[i];
-                int contentEndIndex;
-
-                if (i + 1 < headLines.Length)
+                var isMatch = logLineMatcher(line);
+                if (!isMatch) return true;
+                headerLine = line;
+                return false;
+            });
+            
+            var content = new List<string>();
+            foreach (var line in start)
+            {
+                var isMatch = logLineMatcher(line);
+                if (isMatch)
                 {
-                    var nextHeadLine = headLines[i + 1];
-                    contentEndIndex = nextHeadLine.Index - 1;
+                    var entry = new LogEntry(headerLine, content, "");
+                    yield return entry;
+                    headerLine = line;
+                    content = new List<string>();
                 }
                 else
                 {
-                    contentEndIndex = logLines.Length - 1;
+                    content.Add(line);
                 }
-
-                string content;
-                if (contentEndIndex == i) content = null;
-                else
-                    content = string.Join("\n", logLines.SubList(headLine.Index + 1, contentEndIndex));
-
-                // TODO: extract message and loglevel form the headLine.
-                var entry = new LogEntry(headLine.Line, content, "");
-                yield return entry;
             }
+           
+            // This happens if the collection is empty.
+            if(headerLine == null) yield break;
+            
+            yield return new LogEntry(headerLine, content, "");
         }
-
-
-        public static bool DefaultIsLogLine(string line)
+        
+       
+        public static bool DefaultLogHeadingMatcher(string line)
         {
-            return _defaultLineMatcher.IsMatch(line);
+            return DefaultLineMatcherRegex.IsMatch(line);
         }
     }
 }
